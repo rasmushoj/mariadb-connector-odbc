@@ -1334,7 +1334,7 @@ ODBC_TEST(t_odbc32)
   SQLCHAR     conn[512];
   SQLUINTEGER packet_size= 0;
 
-  sprintf((char *)conn, "DSN=%s;", my_dsn);
+  sprintf((char *)conn, "DSN=%s;PWD=%s", my_dsn, my_pwd);
   
   CHECK_ENV_RC(Env, SQLAllocHandle(SQL_HANDLE_DBC, Env, &hdbc1));
   CHECK_DBC_RC(hdbc1, SQLSetConnectAttr(hdbc1, SQL_ATTR_PACKET_SIZE, (SQLPOINTER)(4096*1024), 0));

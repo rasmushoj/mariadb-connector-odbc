@@ -40,8 +40,11 @@ after_build:
     - set FILE=http://mariadb.mirrors.ovh.net/MariaDB/mariadb-%DB%/winx64-packages/mariadb-%DB%-winx64.msi
     - ps: Start-FileDownload $Env:FILE -FileName server.msi -Timeout 900000
     - msiexec /i server.msi INSTALLDIR=c:\mariadb-server SERVICENAME=mariadb /qn
-    # create test database
+    # create test database and user
     - c:\mariadb-server\bin\mysql.exe -e "CREATE DATABASE odbc_test" --user=root
+    - c:\mariadb-server\bin\mysql.exe -u root -e "CREATE USER 'odbc_user'@'localhost' IDENTIFIED BY 'odbc_password'";
+    - c:\mariadb-server\bin\mysql.exe -u root -e "GRANT ALL PRIVILEGES ON *.* TO 'odbc_user'@'localhost' WITH GRANT OPTION";
+    - c:\mariadb-server\bin\mysql.exe -u root -e "FLUSH PRIVILEGES"
     # install built odbc driver
     - ps: $msifile = Get-ChildItem $env:APPVEYOR_BUILD_FOLDER\win64\wininstall\mariadb-connector-odbc*.msi | Select-Object -First 1
     - ps: Push-AppveyorArtifact $msifile.FullName -FileName $msifile.Name
@@ -61,13 +64,23 @@ after_build:
     - ps: New-ItemProperty -Path $regPath -Name "Driver" -Value "MariaDB ODBC 3.1 Driver"
     - ps: New-ItemProperty -Path $regPath -Name "OPTIONS" -Value "0"
     - ps: New-ItemProperty -Path $regPath -Name "PORT" -Value "0"
-    - ps: New-ItemProperty -Path $regPath -Name "PWD" -Value ""
     - ps: New-ItemProperty -Path $regPath -Name "SERVER" -Value "localhost"
     - ps: New-ItemProperty -Path $regPath -Name "SSLVERIFY" -Value "0"
     - ps: New-ItemProperty -Path $regPath -Name "TCPIP" -Value "1"
-    - ps: New-ItemProperty -Path $regPath -Name "UID" -Value "root"
+    - ps: New-ItemProperty -Path $regPath -Name "UID" -Value "odbc_user"
     - ps: New-Item -Path "HKCU:\Software\ODBC\ODBC.INI\ODBC Data Sources"
     - ps: New-ItemProperty -Path "HKCU:\Software\ODBC\ODBC.INI\ODBC Data Sources" -Name "test" -Value "MariaDB ODBC 3.1 Driver"
+    # test DSN
+    - ps: Start-Sleep -Second 10
+    - ps: $conn = New-Object System.Data.Odbc.OdbcConnection 
+    - ps: $conn.ConnectionString = "DSN=test;PWD=odbc_password"
+    - ps: $conn.Open()
+    - ps: $sqlCmd = New-Object system.Data.Odbc.OdbcCommand("SHOW DATABASES", $conn)
+    - ps: $sqlDa = New-Object system.Data.Odbc.OdbcDataAdapter($sqlCmd)
+    - ps: $sqlDt = New-Object system.Data.DataTable
+    - ps: $sqlDa.fill($sqlDt)
+    - ps: Write $sqlDt
+    - ps: $conn.Close()
     
     # - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
     - cd test
